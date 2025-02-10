@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensis-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opensis-db
+  template:
+    metadata:
+      labels:
+        app: opensis-db
+    spec:
+      containers:
+        - name: mysql
+          image: "{{ .Values.db.image }}"
+          ports:
+            - containerPort: 3306
+          envFrom:
+            - secretRef:
+                name: opensis-db-secret
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-pvc

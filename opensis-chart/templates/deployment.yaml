@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensis
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: opensis
+  template:
+    metadata:
+      labels:
+        app: opensis
+    spec:
+      containers:
+        - name: opensis
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: opensis-config
+          volumeMounts:
+            - name: opensis-data
+              mountPath: /var/www/html
+      volumes:
+        - name: opensis-data
+          persistentVolumeClaim:
+            claimName: opensis-pvc

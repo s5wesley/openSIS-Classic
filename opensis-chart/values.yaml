@@ -1,0 +1,24 @@
+replicaCount: 1
+
+image:
+  repository: your-dockerhub-account/opensis
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+db:
+  image: mysql:5.7
+  rootPassword: rootpassword
+  database: opensis
+  user: opensisuser
+  password: opensispassword
+  port: 3306
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
