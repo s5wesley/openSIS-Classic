@@ -28,10 +28,8 @@ jobs:
             --name mysql-db \
             --network mynetwork \
             -e MYSQL_ROOT_PASSWORD=mysecurepassword \
-            -e MYSQL_DATABASE=mydatabase \
-            -e MYSQL_USER=myuser \
-            -e MYSQL_PASSWORD=userpassword \
             -p 3306:3306 \
+            -v ${{ github.workspace }}/init.sql:/docker-entrypoint-initdb.d/init.sql \
             mysql:5.7 --sql-mode="" --default-authentication-plugin=mysql_native_password
 
           echo "Waiting for MySQL to start..."
@@ -39,18 +37,6 @@ jobs:
 
       - name: Verify MySQL is Running
         run: docker exec mysql-db mysqladmin ping -h mysql-db -u root -pmysecurepassword
-
-      - name: Grant Privileges to MySQL User
-        run: |
-          docker exec -i mysql-db mysql -u root -pmysecurepassword <<EOSQL
-          CREATE USER IF NOT EXISTS 'myuser'@'%' IDENTIFIED BY 'userpassword';
-          GRANT ALL PRIVILEGES ON mydatabase.* TO 'myuser'@'%';
-          ALTER USER 'myuser'@'%' IDENTIFIED WITH mysql_native_password BY 'userpassword';
-          FLUSH PRIVILEGES;
-          EOSQL
-
-      - name: Restart MySQL to Apply Changes
-        run: docker restart mysql-db
 
       - name: Build PHP Apache Docker Image
         run: docker build -t php-apache-app .
