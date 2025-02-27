@@ -39,15 +39,24 @@ jobs:
         run: docker exec mysql-db mysqladmin ping -h mysql-db -u root -pmysecurepassword
 
       - name: Build PHP Apache Docker Image
-        run: docker build -t php-apache-app .
+        run: |
+          echo "Building PHP Apache Image..."
+          docker build -t php-apache-app . || (echo "Docker build failed" && exit 1)
 
       - name: Run PHP Apache Container
         run: |
-          docker run -d \
-            --name php-apache-app \
-            --network mynetwork \
-            -p 80:80 \
-            php-apache-app
+          echo "Starting PHP Apache container..."
+          docker run -d --name php-apache-app --network mynetwork -p 80:80 php-apache-app || (echo "Failed to start php-apache-app container" && exit 1)
+
+      - name: Verify Running Containers
+        run: docker ps -a
+
+      - name: Debugging: Check Logs Before Cleanup
+        if: failure()
+        run: |
+          echo "Checking logs before cleanup..."
+          docker logs mysql-db || echo "No logs for MySQL"
+          docker logs php-apache-app || echo "No logs for PHP Apache"
 
       - name: Install Ngrok
         run: |
@@ -73,17 +82,11 @@ jobs:
         run: |
           echo "Application is accessible at: $NGROK_URL"
           echo "Keeping application up for 5 minutes..."
-          sleep 300  # 300 seconds = 5 minutes
-
-      - name: Verify Logs (if fails)
-        if: failure()
-        run: |
-          docker logs php-apache-app
-          docker logs mysql-db
+          sleep 300
 
       - name: Stop and Clean Up
         if: always()
         run: |
-          docker stop php-apache-app mysql-db
-          docker rm php-apache-app mysql-db
-          docker network rm mynetwork
+          docker stop php-apache-app mysql-db || echo "No running containers to stop"
+          docker rm php-apache-app mysql-db || echo "No containers to remove"
+          docker network rm mynetwork || echo "No network to remove"
