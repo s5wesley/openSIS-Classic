@@ -1,4 +1,4 @@
-name: Deploy PHP Apache App with Ngrok
+name: Deploy PHP Apache App with MySQL & Ngrok
 
 on:
   push:
@@ -19,13 +19,27 @@ jobs:
       - name: Set Up Docker
         uses: docker/setup-buildx-action@v2
 
-      - name: Build Docker Image
+      - name: Start MySQL Database
+        run: |
+          docker run -d \
+            --name mysql-db \
+            -e MYSQL_ROOT_PASSWORD=mysecurepassword \
+            -e MYSQL_DATABASE=mydatabase \
+            -e MYSQL_USER=myuser \
+            -e MYSQL_PASSWORD=userpassword \
+            -p 3306:3306 \
+            mysql:5.7
+          
+          echo "Waiting for MySQL to start..."
+          sleep 10  # Ensure MySQL is fully initialized
+
+      - name: Build PHP Apache Docker Image
         run: |
           docker build -t php-apache-app .
 
-      - name: Run Docker Container
+      - name: Run PHP Apache Container
         run: |
-          docker run -d -p 80:80 --name php-apache-app php-apache-app
+          docker run -d -p 80:80 --name php-apache-app --link mysql-db:mysql php-apache-app
 
       - name: Install Ngrok
         run: |
@@ -59,4 +73,6 @@ jobs:
 
       - name: Stop and Clean Up
         if: always()
-        run: docker stop php-apache-app && docker rm php-apache-app
+        run: |
+          docker stop php-apache-app mysql-db
+          docker rm php-apache-app mysql-db
