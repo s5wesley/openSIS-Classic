@@ -35,16 +35,17 @@ jobs:
             mysql:5.7 --sql-mode="" --default-authentication-plugin=mysql_native_password
 
           echo "Waiting for MySQL to start..."
-          sleep 30  # Wait for MySQL to fully initialize
+          sleep 30  # Allow MySQL to fully initialize
 
       - name: Verify MySQL is Running
-        run: |
-          docker exec mysql-db mysqladmin ping -h mysql-db -u root -pmysecurepassword
+        run: docker exec mysql-db mysqladmin ping -h mysql-db -u root -pmysecurepassword
 
       - name: Grant Privileges to MySQL User
         run: |
           docker exec -i mysql-db mysql -u root -pmysecurepassword <<EOSQL
-          GRANT ALL PRIVILEGES ON mydatabase.* TO 'myuser'@'%' IDENTIFIED BY 'userpassword';
+          CREATE USER IF NOT EXISTS 'myuser'@'%' IDENTIFIED BY 'userpassword';
+          GRANT ALL PRIVILEGES ON mydatabase.* TO 'myuser'@'%';
+          ALTER USER 'myuser'@'%' IDENTIFIED WITH mysql_native_password BY 'userpassword';
           FLUSH PRIVILEGES;
           EOSQL
 
