@@ -28,10 +28,14 @@ jobs:
             -e MYSQL_USER=myuser \
             -e MYSQL_PASSWORD=userpassword \
             -p 3306:3306 \
-            mysql:5.7
-          
+            mysql:5.7 --sql-mode="" --default-authentication-plugin=mysql_native_password
+
           echo "Waiting for MySQL to start..."
-          sleep 10  # Ensure MySQL is fully initialized
+          sleep 20  # Ensure MySQL is fully initialized
+
+      - name: Verify MySQL is Running
+        run: |
+          docker exec mysql-db mysqladmin ping -h localhost -u root -pmysecurepassword
 
       - name: Build PHP Apache Docker Image
         run: |
@@ -39,7 +43,7 @@ jobs:
 
       - name: Run PHP Apache Container
         run: |
-          docker run -d -p 80:80 --name php-apache-app --link mysql-db:mysql php-apache-app
+          docker run -d -p 80:80 --name php-apache-app --network host php-apache-app
 
       - name: Install Ngrok
         run: |
@@ -69,7 +73,9 @@ jobs:
 
       - name: Verify Logs (if fails)
         if: failure()
-        run: docker logs php-apache-app
+        run: |
+          docker logs php-apache-app
+          docker logs mysql-db
 
       - name: Stop and Clean Up
         if: always()
