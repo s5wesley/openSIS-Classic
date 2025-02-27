@@ -20,8 +20,7 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Create Docker Network
-        run: |
-          docker network create mynetwork
+        run: docker network create mynetwork
 
       - name: Start MySQL Database
         run: |
@@ -29,22 +28,27 @@ jobs:
             --name mysql-db \
             --network mynetwork \
             -e MYSQL_ROOT_PASSWORD=mysecurepassword \
-            -e MYSQL_DATABASE=mydatabase \
+            -e MYSQL_DATABASE=opensis \
             -e MYSQL_USER=myuser \
             -e MYSQL_PASSWORD=userpassword \
             -p 3306:3306 \
             mysql:5.7 --sql-mode="" --default-authentication-plugin=mysql_native_password
 
           echo "Waiting for MySQL to start..."
-          sleep 30  # Give MySQL more time to initialize
+          sleep 30
+
+      - name: Grant Privileges to MySQL User
+        run: |
+          docker exec mysql-db mysql -u root -pmysecurepassword -e "
+            GRANT ALL PRIVILEGES ON opensis.* TO 'myuser'@'%' IDENTIFIED BY 'userpassword';
+            FLUSH PRIVILEGES;
+          "
 
       - name: Verify MySQL is Running
-        run: |
-          docker exec mysql-db mysqladmin ping -h mysql-db -u root -pmysecurepassword
+        run: docker exec mysql-db mysqladmin ping -h mysql-db -u root -pmysecurepassword
 
       - name: Build PHP Apache Docker Image
-        run: |
-          docker build -t php-apache-app .
+        run: docker build -t php-apache-app .
 
       - name: Run PHP Apache Container
         run: |
@@ -78,7 +82,7 @@ jobs:
         run: |
           echo "Application is accessible at: $NGROK_URL"
           echo "Keeping application up for 5 minutes..."
-          sleep 300  # 300 seconds = 5 minutes
+          sleep 300
 
       - name: Verify Logs (if fails)
         if: failure()
