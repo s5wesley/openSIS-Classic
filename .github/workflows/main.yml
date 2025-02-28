@@ -86,7 +86,7 @@ jobs:
       - name: Keep Application Running for 5 Minutes
         run: |
           echo "Application is accessible at: $NGROK_URL"
-          echo "Keeping application up for 5 minutes..."
+          echo "Keeping application up for 5 minutes..." 
           sleep 300  # 300 seconds = 5 minutes
 
       - name: Stop and Clean Up
