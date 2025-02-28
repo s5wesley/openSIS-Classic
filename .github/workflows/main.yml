@@ -31,4 +31,77 @@ jobs:
       - name: Start MySQL Database
         run: |
           docker run -d \
-  
+            --name mysql-db \
+            --network mynetwork \
+            -e MYSQL_ROOT_PASSWORD=mysecurepassword \
+            -p 3306:3306 \
+            -v "${{ github.workspace }}/init.sql:/docker-entrypoint-initdb.d/init.sql" \
+            mysql:5.7 \
+            --init-file=/docker-entrypoint-initdb.d/init.sql \
+            --default-authentication-plugin=mysql_native_password
+
+          echo "Waiting for MySQL to fully initialize..."
+          sleep 60  # Increased wait time
+
+      - name: Verify MySQL is Running
+        run: |
+          docker ps -a  # Check all running containers
+          docker logs mysql-db  # Display MySQL logs
+          docker exec mysql-db mysqladmin ping -h localhost -u root -pmysecurepassword
+
+      - name: Build PHP Apache Docker Image
+        run: |
+          echo "Building PHP Apache Image..."
+          docker build -t php-apache-app . || { echo "Docker build failed"; exit 1; }
+
+      - name: Run PHP Apache Container
+        run: |
+          echo "Starting PHP Apache container..."
+          docker run -d \
+            --name php-apache-app \
+            --network mynetwork \
+            -p 80:80 \
+            php-apache-app || { echo "Failed to start php-apache-app container"; exit 1; }
+
+      - name: Verify Running Containers
+        run: docker ps -a
+
+      - name: Debugging: Check Logs Before Cleanup (if failed)
+        if: failure()
+        run: |
+          echo "Checking logs before cleanup..."
+          docker logs mysql-db || echo "No logs for MySQL"
+          docker logs php-apache-app || echo "No logs for PHP Apache"
+
+      - name: Install Ngrok
+        run: |
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install ngrok -y
+
+      - name: Start Ngrok Tunnel
+        env:
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        run: |
+          ngrok config add-authtoken $NGROK_AUTH_TOKEN
+          nohup ngrok http 80 > /dev/null 2>&1 &
+
+      - name: Get Ngrok Public URL
+        run: |
+          sleep 5
+          NGROK_URL=$(curl --silent http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "Ngrok URL: $NGROK_URL"
+          echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
+
+      - name: Keep Application Running for 5 Minutes
+        run: |
+          echo "Application is accessible at: $NGROK_URL"
+          echo "Keeping application up for 5 minutes..." 
+          sleep 300  # 300 seconds = 5 minutes
+
+      - name: Stop and Clean Up
+        if: always()
+        run: |
+          docker stop php-apache-app mysql-db || echo "No running containers to stop"
+          docker rm php-apache-app mysql-db || echo "No containers to remove"
+          docker network rm mynetwork || echo "No network to remove"
