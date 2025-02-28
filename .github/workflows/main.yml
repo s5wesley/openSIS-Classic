@@ -22,6 +22,12 @@ jobs:
       - name: Create Docker Network
         run: docker network create mynetwork
 
+      - name: Create MySQL Init Script
+        run: |
+          echo "ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'mysecurepassword';" > init.sql
+          echo "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;" >> init.sql
+          echo "FLUSH PRIVILEGES;" >> init.sql
+
       - name: Start MySQL Database
         run: |
           docker run -d \
@@ -30,14 +36,16 @@ jobs:
             -e MYSQL_ROOT_PASSWORD=mysecurepassword \
             -p 3306:3306 \
             -v "${{ github.workspace }}/init.sql:/docker-entrypoint-initdb.d/init.sql" \
-            mysql:5.7 --default-authentication-plugin=mysql_native_password
+            mysql:5.7 --init-file=/docker-entrypoint-initdb.d/init.sql \
+            --default-authentication-plugin=mysql_native_password
 
-          echo "Waiting for MySQL to start..."
-          sleep 30  # Allow MySQL to fully initialize
+          echo "Waiting for MySQL to fully initialize..."
+          sleep 60  # Increased wait time to ensure MySQL is ready
 
       - name: Verify MySQL is Running
         run: |
-          docker exec mysql-db mysqladmin ping -h mysql-db -u root -pmysecurepassword
+          docker logs mysql-db  # Check for any startup errors
+          docker exec mysql-db mysqladmin ping -h localhost -u root -pmysecurepassword
 
       - name: Build PHP Apache Docker Image
         run: |
